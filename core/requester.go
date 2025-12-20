@@ -2,42 +2,41 @@ package core
 
 import "context"
 
-type requesterKeyType struct{}
-
-var requesterKey = requesterKeyType{}
+const KeyRequester = "requester"
 
 type Requester interface {
-	GetUserID() int
-	GetRole() string
+	GetSubject() string
+	GetTokenId() string
 }
 
 type requesterData struct {
-	UserID int
-	Role   string
+	Sub string `json:"user_id"`
+	Tid string `json:"tid"`
 }
 
-func NewRequester(userID int, role string) *requesterData {
+func NewRequester(sub, tid string) *requesterData {
 	return &requesterData{
-		UserID: userID,
-		Role:   role,
+		Sub: sub,
+		Tid: tid,
 	}
 }
 
-func (r *requesterData) GetUserID() int {
-	return r.UserID
+func (r *requesterData) GetSubject() string {
+	return r.Sub
 }
 
-func (r *requesterData) GetRole() string {
-	return r.Role
+func (r *requesterData) GetTokenId() string {
+	return r.Tid
 }
 
 func GetRequester(ctx context.Context) Requester {
-	if requester, ok := ctx.Value(requesterKey).(Requester); ok {
+	if requester, ok := ctx.Value(KeyRequester).(Requester); ok {
 		return requester
 	}
+
 	return nil
 }
 
 func ContextWithRequester(ctx context.Context, requester Requester) context.Context {
-	return context.WithValue(ctx, requesterKey, requester)
+	return context.WithValue(ctx, KeyRequester, requester)
 }
