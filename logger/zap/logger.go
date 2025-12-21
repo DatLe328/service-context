@@ -1,6 +1,9 @@
-package logger
+package zaplogger
 
-import "go.uber.org/zap"
+import (
+	"github.com/DatLe328/service-context/logger"
+	"go.uber.org/zap"
+)
 
 type zapLogger struct {
 	sugar *zap.SugaredLogger
@@ -32,13 +35,13 @@ func (l *zapLogger) Errorf(format string, args ...interface{}) {
 	l.sugar.Errorf(format, args...)
 }
 
-func (l *zapLogger) With(key string, value interface{}) Logger {
+func (l *zapLogger) With(key string, value interface{}) logger.Logger {
 	return &zapLogger{
 		sugar: l.sugar.With(key, value),
 	}
 }
 
-func (l *zapLogger) WithFields(fields Fields) Logger {
+func (l *zapLogger) WithFields(fields logger.Fields) logger.Logger {
 	args := make([]interface{}, 0, len(fields)*2)
 	for k, v := range fields {
 		args = append(args, k, v)

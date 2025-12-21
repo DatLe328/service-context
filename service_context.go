@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/DatLe328/service-context/logger"
+	zaplogger "github.com/DatLe328/service-context/logger/zap"
 	"github.com/joho/godotenv"
 )
 
@@ -29,6 +30,8 @@ type ServiceContext interface {
 	Stop() error
 
 	Logger(prefix string) logger.Logger
+	LogLevel() string
+
 	EnvName() string
 	GetName() string
 	Get(id string) (interface{}, bool)
@@ -43,7 +46,7 @@ type serviceCtx struct {
 	logger     logger.Logger
 }
 
-var defaultLogger = logger.NewAppLogger()
+var defaultLogger = zaplogger.NewZapLogger()
 
 type Option func(*serviceCtx)
 
@@ -75,7 +78,6 @@ func NewServiceContext(opts ...Option) ServiceContext {
 	s.parseFlags()
 
 	s.logger = defaultLogger.GetLogger("service-context")
-
 	return s
 }
 
@@ -93,8 +95,11 @@ func (s *serviceCtx) Load() error {
 	}
 
 	s.logger = s.Logger("service-context")
-
-	s.logger.Infof("service starting (env=%s)", s.env)
+	s.logger.Infof(
+		"service starting env=%s log_level=%s",
+		s.env,
+		defaultLogger.GetLevel(),
+	)
 
 	for _, c := range s.components {
 		s.logger.Infof("activating component: %s", c.ID())
@@ -102,7 +107,6 @@ func (s *serviceCtx) Load() error {
 			return fmt.Errorf("activate %s: %v", c.ID(), err)
 		}
 	}
-
 	return nil
 }
 
@@ -110,35 +114,32 @@ func (s *serviceCtx) Stop() error {
 	s.logger.Info("stopping service context")
 	for _, c := range s.components {
 		if err := c.Stop(); err != nil {
-			return fmt.Errorf("stop: %s: %v", c.ID(), err)
+			return fmt.Errorf("stop %s: %v", c.ID(), err)
 		}
 	}
 	_ = defaultLogger.Stop()
-
 	return nil
-}
-
-func (s *serviceCtx) Get(id string) (interface{}, bool) {
-	c, ok := s.store[id]
-
-	if !ok {
-		return nil, false
-	}
-
-	return c, true
-}
-
-func (s *serviceCtx) MustGet(id string) interface{} {
-	c, ok := s.Get(id)
-
-	if !ok {
-		panic(fmt.Sprintf("can not get %s\n", id))
-	}
-	return c
 }
 
 func (s *serviceCtx) Logger(prefix string) logger.Logger {
 	return defaultLogger.GetLogger(prefix)
+}
+
+func (s *serviceCtx) Get(id string) (interface{}, bool) {
+	c, ok := s.store[id]
+	return c, ok
+}
+
+func (s *serviceCtx) MustGet(id string) interface{} {
+	c, ok := s.Get(id)
+	if !ok {
+		panic(fmt.Sprintf("cannot get component %s", id))
+	}
+	return c
+}
+
+func (s *serviceCtx) LogLevel() string {
+	return defaultLogger.GetLevel()
 }
 
 func (s *serviceCtx) EnvName() string { return s.env }
@@ -156,21 +157,11 @@ func (s *serviceCtx) parseFlags() {
 		}
 	}
 
-	// parse flag to .env format
+	// parse flag to env format
 	flag.VisitAll(func(f *flag.Flag) {
 		envKey := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-
-		if envVal := os.Getenv(envKey); envVal != "" {
-			exists := false
-			flag.Visit(func(sf *flag.Flag) {
-				if sf.Name == f.Name {
-					exists = true
-				}
-			})
-
-			if !exists {
-				flag.Set(f.Name, envVal)
-			}
+		if v := os.Getenv(envKey); v != "" {
+			flag.Set(f.Name, v)
 		}
 	})
 
