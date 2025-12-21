@@ -4,11 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"time"
 
 	sctx "github.com/DatLe328/service-context"
 	"github.com/DatLe328/service-context/component/gormc/dialets"
 	"github.com/DatLe328/service-context/logger"
 	"gorm.io/gorm"
+	gormLogger "gorm.io/gorm/logger"
 )
 
 type GormDBType int
@@ -28,10 +30,11 @@ type GormOpt struct {
 }
 
 type gormDB struct {
-	id     string
-	prefix string
-	logger logger.Logger
-	db     *gorm.DB
+	id       string
+	prefix   string
+	logger   logger.Logger
+	logLevel string
+	db       *gorm.DB
 	*GormOpt
 }
 
@@ -92,6 +95,13 @@ func (gdb *gormDB) InitFlags() {
 
 func (gdb *gormDB) Activate(serviceCtx sctx.ServiceContext) error {
 	gdb.logger = serviceCtx.Logger(gdb.id)
+	gdb.logLevel = serviceCtx.LogLevel()
+
+	gdb.logger.Infof(
+		"gorm initialized (db=%s, log_level=%s)",
+		gdb.dbType,
+		gdb.logLevel,
+	)
 
 	dbType := getDBType(gdb.dbType)
 
@@ -126,6 +136,27 @@ func (gdb *gormDB) Stop() error {
 
 	gdb.logger.Info("closing database connection...")
 	return sqlDB.Close()
+}
+
+func (gdb *gormDB) GetDB() *gorm.DB {
+	if gdb.logLevel == "debug" {
+		return gdb.db.Session(&gorm.Session{NewDB: true}).Debug()
+	}
+
+	newSessionDB := gdb.db.Session(&gorm.Session{
+		NewDB:  true,
+		Logger: gdb.db.Logger.LogMode(gormLogger.Silent),
+	})
+
+	if sqlDB, err := newSessionDB.DB(); err == nil {
+		sqlDB.SetMaxOpenConns(gdb.maxOpenConnections)
+		sqlDB.SetMaxIdleConns(gdb.maxIdleConnections)
+		sqlDB.SetConnMaxIdleTime(
+			time.Second * time.Duration(gdb.maxConnectionIdleTime),
+		)
+	}
+
+	return newSessionDB
 }
 
 func getDBType(dbType string) GormDBType {
