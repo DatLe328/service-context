@@ -64,7 +64,7 @@ func (j *jwtx) Stop() error {
 	return nil
 }
 
-func (j *jwtx) Issue(ctx context.Context, id, sub string) (token string, expSecs int, err error) {
+func (j *jwtx) IssueToken(ctx context.Context, id, sub string) (token string, expSecs int, err error) {
 	now := time.Now().UTC()
 
 	claims := jwt.RegisteredClaims{
