@@ -86,7 +86,11 @@ func (j *jwtx) IssueToken(ctx context.Context, id, sub string) (token string, ex
 	return tokenSignedStr, j.expireTokenInSeconds, nil
 }
 
-func (j *jwtx) ParseToken(ctx context.Context, tokenString string) (claims *jwt.RegisteredClaims, err error) {
+func (j *jwtx) ParseToken(ctx context.Context, tokenString string) (*jwt.RegisteredClaims, error) {
+	if j == nil {
+		return nil, errors.New("jwt component is nil")
+	}
+
 	var rc jwt.RegisteredClaims
 	token, err := jwt.ParseWithClaims(tokenString, &rc, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -96,8 +100,12 @@ func (j *jwtx) ParseToken(ctx context.Context, tokenString string) (claims *jwt.
 		return []byte(j.secret), nil
 	})
 
-	if !token.Valid {
+	if err != nil {
 		return nil, err
+	}
+
+	if token == nil || !token.Valid {
+		return nil, errors.New("invalid token")
 	}
 
 	return &rc, nil
