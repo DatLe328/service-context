@@ -15,7 +15,7 @@ import (
 const (
 	DevEnv = "dev"
 	StgEnv = "stg"
-	PrdEnv = "prod"
+	PrdEnv = "prd"
 )
 
 type Component interface {
@@ -77,7 +77,6 @@ func NewServiceContext(opts ...Option) ServiceContext {
 	s.initFlags()
 	s.parseFlags()
 
-	s.logger = defaultLogger.GetLogger("service-context")
 	return s
 }
 
@@ -90,6 +89,20 @@ func (s *serviceCtx) initFlags() {
 }
 
 func (s *serviceCtx) Load() error {
+	if defaultLogger.GetLevel() == "" {
+		switch s.env {
+		case DevEnv:
+			_ = defaultLogger.SetLevel("debug")
+		case StgEnv:
+			_ = defaultLogger.SetLevel("info")
+		case PrdEnv:
+			_ = defaultLogger.SetLevel("warn")
+		default:
+			log.Println("here")
+			_ = defaultLogger.SetLevel("info")
+		}
+	}
+
 	if err := defaultLogger.Activate(); err != nil {
 		return err
 	}
