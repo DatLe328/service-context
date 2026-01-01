@@ -36,6 +36,8 @@ type ServiceContext interface {
 	GetName() string
 	Get(id string) (interface{}, bool)
 	MustGet(id string) interface{}
+
+	OutEnv()
 }
 
 type serviceCtx struct {
@@ -179,4 +181,26 @@ func (s *serviceCtx) parseFlags() {
 	})
 
 	flag.Parse()
+}
+
+func (s *serviceCtx) OutEnv() {
+	fmt.Println("Resolved environment variables:")
+
+	flag.VisitAll(func(f *flag.Flag) {
+		envKey := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+
+		value := f.Value.String()
+		source := "default"
+		if value != f.DefValue {
+			source = "override"
+		}
+
+		fmt.Printf(
+			"%-30s = %-20s (%s)\n    ↳ %s\n\n",
+			envKey,
+			value,
+			source,
+			f.Usage,
+		)
+	})
 }
