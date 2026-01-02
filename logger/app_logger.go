@@ -7,4 +7,5 @@ type AppLogger interface {
 
 	GetLogger(prefix string) Logger
 	GetLevel() string
+	SetLevel(string) error
 }

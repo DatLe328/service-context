@@ -15,7 +15,7 @@ import (
 const (
 	DevEnv = "dev"
 	StgEnv = "stg"
-	PrdEnv = "prod"
+	PrdEnv = "prd"
 )
 
 type Component interface {
@@ -36,6 +36,8 @@ type ServiceContext interface {
 	GetName() string
 	Get(id string) (interface{}, bool)
 	MustGet(id string) interface{}
+
+	OutEnv()
 }
 
 type serviceCtx struct {
@@ -77,7 +79,6 @@ func NewServiceContext(opts ...Option) ServiceContext {
 	s.initFlags()
 	s.parseFlags()
 
-	s.logger = defaultLogger.GetLogger("service-context")
 	return s
 }
 
@@ -90,6 +91,20 @@ func (s *serviceCtx) initFlags() {
 }
 
 func (s *serviceCtx) Load() error {
+	if defaultLogger.GetLevel() == "" {
+		switch s.env {
+		case DevEnv:
+			_ = defaultLogger.SetLevel("debug")
+		case StgEnv:
+			_ = defaultLogger.SetLevel("info")
+		case PrdEnv:
+			_ = defaultLogger.SetLevel("warn")
+		default:
+			log.Println("here")
+			_ = defaultLogger.SetLevel("info")
+		}
+	}
+
 	if err := defaultLogger.Activate(); err != nil {
 		return err
 	}
@@ -166,4 +181,26 @@ func (s *serviceCtx) parseFlags() {
 	})
 
 	flag.Parse()
+}
+
+func (s *serviceCtx) OutEnv() {
+	fmt.Println("Resolved environment variables:")
+
+	flag.VisitAll(func(f *flag.Flag) {
+		envKey := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
+
+		value := f.Value.String()
+		source := "default"
+		if value != f.DefValue {
+			source = "override"
+		}
+
+		fmt.Printf(
+			"%-30s = %-20s (%s)\n    ↳ %s\n\n",
+			envKey,
+			value,
+			source,
+			f.Usage,
+		)
+	})
 }

@@ -1,6 +1,7 @@
 package zaplogger
 
 import (
+	"errors"
 	"flag"
 
 	"github.com/DatLe328/service-context/logger"
@@ -15,15 +16,11 @@ type appLogger struct {
 }
 
 func NewZapLogger() logger.AppLogger {
-	atomicLevel := zap.NewAtomicLevelAt(zap.InfoLevel)
-
-	zl, _ := zap.NewProduction(
-		zap.IncreaseLevel(atomicLevel),
-	)
+	zl, _ := zap.NewProduction()
 
 	return &appLogger{
-		level:       "info",
-		atomicLevel: atomicLevel,
+		level:       "",
+		atomicLevel: zap.NewAtomicLevel(),
 		logger:      zl,
 	}
 }
@@ -32,15 +29,14 @@ func (a *appLogger) InitFlags() {
 	flag.StringVar(
 		&a.level,
 		"log-level",
-		"info",
+		"",
 		"Log level: debug | info | warn | error",
 	)
 }
 
 func (a *appLogger) Activate() error {
-	cfg := zap.NewDevelopmentConfig()
-	if a.level == "info" {
-		cfg = zap.NewProductionConfig()
+	if a.level == "" {
+		return errors.New("log level cannot be empty")
 	}
 
 	lv, err := zapcore.ParseLevel(a.level)
@@ -49,6 +45,14 @@ func (a *appLogger) Activate() error {
 	}
 
 	a.atomicLevel.SetLevel(lv)
+
+	var cfg zap.Config
+	if lv == zap.DebugLevel {
+		cfg = zap.NewDevelopmentConfig()
+	} else {
+		cfg = zap.NewProductionConfig()
+	}
+
 	cfg.Level = a.atomicLevel
 
 	logger, err := cfg.Build(
@@ -72,7 +76,17 @@ func (a *appLogger) GetLogger(prefix string) logger.Logger {
 }
 
 func (a *appLogger) GetLevel() string {
-	return a.atomicLevel.Level().String()
+	return a.level
+}
+
+func (a *appLogger) SetLevel(level string) error {
+	lv, err := zapcore.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+	a.level = level
+	a.atomicLevel.SetLevel(lv)
+	return nil
 }
 
 func (a *appLogger) Stop() error {
