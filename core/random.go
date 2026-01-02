@@ -33,22 +33,11 @@ func randSequence(n int, charset string) (string, error) {
 	return string(result), nil
 }
 
-func GenSalt(length int) string {
+func GenSalt(length int) (string, error) {
 	if length <= 0 {
 		length = 50
 	}
-
-	salt, err := randSequence(length, LettersAndDigits)
-	if err != nil {
-		// Fallback to base64 encoded random bytes if randSequence fails
-		bytes := make([]byte, length)
-		if _, err := rand.Read(bytes); err != nil {
-			panic("crypto/rand is unavailable: " + err.Error())
-		}
-		return base64.URLEncoding.EncodeToString(bytes)[:length]
-	}
-
-	return salt
+	return randSequence(length, LettersAndDigits)
 }
 
 func GenRandomString(length int, charset string) (string, error) {
@@ -93,7 +82,11 @@ func GenHex(length int) (string, error) {
 }
 
 func MustGenSalt(length int) string {
-	return GenSalt(length)
+	salt, err := GenSalt(length)
+	if err != nil {
+		panic("failed to generate salt: " + err.Error())
+	}
+	return salt
 }
 
 func MustGenSecureToken(length int) string {
