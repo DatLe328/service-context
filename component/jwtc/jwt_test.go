@@ -36,6 +36,7 @@ func TestJWT_IssueToken_Success(t *testing.T) {
 		context.Background(),
 		"token-id-1",
 		"user-1",
+		0,
 	)
 
 	if err != nil {
@@ -58,6 +59,7 @@ func TestJWT_ParseToken_Success(t *testing.T) {
 		context.Background(),
 		"token-id-1",
 		"user-1",
+		0,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -84,6 +86,7 @@ func TestJWT_ParseToken_InvalidToken(t *testing.T) {
 		context.Background(),
 		"id",
 		"user",
+		0,
 	)
 	if err != nil {
 		t.Fatal(err)
