@@ -64,12 +64,17 @@ func (j *jwtx) Stop() error {
 	return nil
 }
 
-func (j *jwtx) IssueToken(ctx context.Context, id, sub string) (token string, expSecs int, err error) {
+func (j *jwtx) IssueToken(ctx context.Context, id, sub string, seconds int) (token string, expSecs int, err error) {
 	now := time.Now().UTC()
+
+	exp := j.expireTokenInSeconds
+	if seconds > 0 {
+		exp = seconds
+	}
 
 	claims := jwt.RegisteredClaims{
 		Subject:   sub,
-		ExpiresAt: jwt.NewNumericDate(now.Add(time.Second * time.Duration(j.expireTokenInSeconds))),
+		ExpiresAt: jwt.NewNumericDate(now.Add(time.Second * time.Duration(exp))),
 		NotBefore: jwt.NewNumericDate(now),
 		IssuedAt:  jwt.NewNumericDate(now),
 		ID:        id,
@@ -83,7 +88,7 @@ func (j *jwtx) IssueToken(ctx context.Context, id, sub string) (token string, ex
 		return "", 0, err
 	}
 
-	return tokenSignedStr, j.expireTokenInSeconds, nil
+	return tokenSignedStr, exp, nil
 }
 
 func (j *jwtx) ParseToken(ctx context.Context, tokenString string) (*jwt.RegisteredClaims, error) {
