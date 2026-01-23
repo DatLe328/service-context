@@ -1,8 +1,12 @@
 package ginc
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"time"
 
 	sctx "github.com/DatLe328/service-context"
 	"github.com/DatLe328/service-context/logger"
@@ -21,9 +25,10 @@ type Config struct {
 
 type ginEngine struct {
 	*Config
-	id     string
-	logger logger.Logger
-	router *gin.Engine
+	id         string
+	logger     logger.Logger
+	router     *gin.Engine
+	httpServer *http.Server
 }
 
 func NewGin(id string) *ginEngine {
@@ -66,6 +71,18 @@ func (g *ginEngine) Activate(serviceContext sctx.ServiceContext) error {
 }
 
 func (g *ginEngine) Stop() error {
+	if g.httpServer != nil {
+		g.logger.Info("Shutting down Gin HTTP Server...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		if err := g.httpServer.Shutdown(ctx); err != nil {
+			g.logger.Errorf("Gin Server forced to shutdown: %v", err)
+			return err
+		}
+		g.logger.Info("Gin Server exited properly")
+	}
 	return nil
 }
 
@@ -80,4 +97,23 @@ func (g *ginEngine) GetPort() int {
 
 func (g *ginEngine) GetRouter() *gin.Engine {
 	return g.router
+}
+
+func (g *ginEngine) Run() {
+	addr := fmt.Sprintf(":%d", g.port)
+	g.httpServer = &http.Server{
+		Addr:           addr,
+		Handler:        g.router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	go func() {
+		g.logger.Infof("Server is running on port %d...", g.port)
+		if err := g.httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			g.logger.Errorf("listen: %s\n", err)
+		}
+	}()
 }
